@@ -91,10 +91,22 @@ enum Mode { Initialising,
             Waiting,
             Tone };
 Mode mode = Mode::Initialising;
+Mode waitMode = mode;
 
-float beep_volume = 0.04f; // not too loud :-)
+enum Tones { Beep,
+             Two_Tone,
+             Solid,
+             None };
 
-uint32_t MTPcheckInterval; // default value of device check interval [ms]
+float beep_volume = 0.04f;  // not too loud :-)
+
+uint32_t MTPcheckInterval;  // default value of device check interval [ms]
+
+unsigned long startTime = 0;
+unsigned long waitTime = 0;
+unsigned long waitStartTime = 0;
+unsigned long curMillis = 0;
+unsigned long toneTime = 0;
 
 // variables for writing to WAV file
 unsigned long ChunkSize = 0L;
@@ -125,6 +137,28 @@ byte colPins[COLS] = { 17, 16, 15, 14 };  //connect to the column pinouts of the
 
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
+int curTone = Tones::None;
+int tonePos = 0;
+
+float toneAmpVal[3][9] = {
+  { 0, beep_volume, 0, beep_volume, 0, beep_volume, 0, beep_volume, 0 },
+  { 0, beep_volume, 0, beep_volume, 0, beep_volume, 0, beep_volume, 0 },
+  { 0, beep_volume, beep_volume, beep_volume, beep_volume, beep_volume, beep_volume, beep_volume, 0 }
+};
+
+float toneFreqVal[3][9] = {
+  { 0, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 523.25, 0 },
+  { 0, 523.25, 375.0, 523.25, 375.0, 523.25, 375.0, 523.25, 0 },
+  { 0, 440, 440, 440, 440, 440, 440, 440, 0 }
+};
+
+unsigned long toneWaitVal[3][9] = {
+  { 0, 250, 250, 250, 250, 250, 250, 250, 0 },
+  { 0, 250, 250, 250, 250, 250, 250, 250, 0 },
+  { 0, 200, 200, 200, 200, 200, 200, 200, 0 }
+};
+
+void playTone(Tones play);
 
 void setup() {
 
@@ -133,8 +167,8 @@ void setup() {
     // wait for serial port to connect.
   }
   Serial.println("Serial set up correctly");
-  Serial.printf("Audio block set to %d samples\n",AUDIO_BLOCK_SAMPLES);
-  print_mode();
+  Serial.printf("Audio block set to %d samples\n", AUDIO_BLOCK_SAMPLES);
+  changeMode(Mode::Initialising);
   // Configure the input pins
   pinMode(HOOK_PIN, INPUT_PULLUP);
   pinMode(PLAYBACK_BUTTON_PIN, INPUT_PULLUP);
@@ -236,7 +270,7 @@ void loop() {
       }
 
       // Play the greeting inviting them to record their message
-      playWav1.play("greeting.wav");    
+      playWav1.play("greeting.wav");
       changeMode(Mode::Playing_Greeting);
       break;
 
@@ -258,9 +292,8 @@ void loop() {
         return;
       }
 
-      }
-      // Debug message
-      Serial.println("Starting Recording");
+      if (playWav1.isStopped()) {
+        Serial.println("Starting Recording");
         mode = Mode::Init_Recording;
         playTone(Tones::Solid);
       }
@@ -293,8 +326,18 @@ void loop() {
       }
       break;
 
-    case Mode::Playing: // to make compiler happy
-      break;  
+    case Mode::Tone:  // to make compiler happy
+      if (curMillis - toneTime >= toneWaitVal[curTone][tonePos]) {
+        tonePos++;
+        waveform1.frequency(toneFreqVal[curTone][tonePos]);
+        waveform1.amplitude(toneAmpVal[curTone][tonePos]);
+        toneTime = curMillis;
+      }
+      if (tonePos > 8) {
+        mode = waitMode;
+      }
+
+      break;
 
     case Mode::Playing:  // to make compiler happy
 
@@ -562,17 +605,12 @@ void dateTime(uint16_t* date, uint16_t* time, uint8_t* ms10) {
 }
 
 // Non-blocking delay, which pauses execution of main program logic,
-// but while still listening for input 
+// but while still listening for input
 void wait(unsigned int milliseconds) {
-  elapsedMillis msec=0;
+  elapsedMillis msec = 0;
 
   while (msec <= milliseconds) {
-    buttonRecord.update();
-    buttonPlay.update();
-    if (buttonRecord.fallingEdge()) Serial.println("Button (pin 0) Press");
-    if (buttonPlay.fallingEdge()) Serial.println("Button (pin 1) Press");
-    if (buttonRecord.risingEdge()) Serial.println("Button (pin 0) Release");
-    if (buttonPlay.risingEdge()) Serial.println("Button (pin 1) Release");
+    delay(1);
   }
 }
 
