@@ -44,18 +44,31 @@
 // GLOBALS
 // Audio initialisation code can be generated using the GUI interface at https://www.pjrc.com/teensy/gui/
 // Inputs
-AudioSynthWaveform          waveform1; // To create the "beep" sfx
-AudioInputI2S               i2s2; // I2S input from microphone on audio shield
-AudioPlaySdWavX              playWav1; // Play 44.1kHz 16-bit PCM greeting WAV file
-AudioRecordQueue            queue1; // Creating an audio buffer in memory before saving to SD
-AudioMixer4                 mixer; // Allows merging several inputs to same output
-AudioOutputI2S              i2s1; // I2S interface to Speaker/Line Out on Audio shield
-AudioConnection patchCord1(waveform1, 0, mixer, 0); // wave to mixer 
-AudioConnection patchCord3(playWav1, 0, mixer, 1); // wav file playback mixer
-AudioConnection patchCord4(mixer, 0, i2s1, 0); // mixer output to speaker (L)
-AudioConnection patchCord6(mixer, 0, i2s1, 1); // mixer output to speaker (R)
-AudioConnection patchCord5(i2s2, 0, queue1, 0); // mic input to queue (L)
-AudioControlSGTL5000      sgtl5000_1;
+AudioSynthWaveform waveform1;                         // To create the "beep" sfx
+AudioSynthWaveform waveformMF1;                       // To create the "beep" sfx
+AudioSynthWaveform waveformMF2;                       // To create the "beep" sfx
+AudioInputI2S i2s2;                                   // I2S input from microphone on audio shield
+AudioPlaySdWavX playWav1;                             // Play 44.1kHz 16-bit PCM greeting WAV file
+AudioRecordQueue queue1;                              // Creating an audio buffer in memory before saving to SD
+AudioMixer4 mixer1;                                   // Allows merging several inputs to same output
+AudioMixer4 mixer2;                                   // Allows merging several inputs to same output
+AudioMixer4 mixer3;                                   // Allows merging several inputs to same output
+AudioOutputI2S i2s1;                                  // I2S interface to Speaker/Line Out on Audio shield
+AudioConnection patchCord1(waveform1, 0, mixer1, 0);  // wave to mixer
+AudioConnection patchCord2(playWav1, 0, mixer1, 1);   // wav file mixer
+
+AudioConnection patchCord3(waveformMF1, 0, mixer2, 0);  // DTMF 1
+AudioConnection patchCord4(waveformMF2, 0, mixer2, 1);  // DTMF 2
+
+AudioConnection patchCord5(mixer2, 0, mixer1, 2);  //mixer2 into mixer
+AudioConnection patchCord6(mixer2, 0, mixer3, 0);  //mixer2 into mixer
+
+AudioConnection patchCord7(i2s2, 0, mixer3, 1);  // mic input to mixer2 (L)
+
+AudioConnection patchCord8(mixer1, 0, i2s1, 0);     // mixer output to speaker (L)
+AudioConnection patchCord9(mixer1, 0, i2s1, 1);     // mixer output to speaker (R)
+AudioConnection patchCord10(mixer3, 0, queue1, 0);  // mixer2 input to queue (L)
+AudioControlSGTL5000 sgtl5000_1;
 
 // Filename to save audio recording on SD card
 char filename[15];
@@ -128,9 +141,15 @@ void setup() {
   //sgtl5000_1.adcHighPassFilterDisable(); //
   sgtl5000_1.volume(0.95);
 
-  mixer.gain(0, 1.0f);
-  mixer.gain(1, 1.0f);
+  mixer1.gain(0, 1.0f);
+  mixer1.gain(1, 1.0f);
+  mixer1.gain(3, 1.0f);
 
+  mixer2.gain(0, 0.8f);
+  mixer2.gain(1, 0.8f);
+
+  mixer3.gain(0, 1.0f);
+  mixer3.gain(1, 1.0f);
   // Play a beep to indicate system is online
   waveform1.begin(beep_volume, 440, WAVEFORM_SINE);
   wait(1000);
