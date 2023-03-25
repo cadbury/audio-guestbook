@@ -89,6 +89,21 @@ unsigned long NumSamples = 0L;
 byte byte1, byte2, byte3, byte4;
 
 
+const byte ROWS = 4;  //four rows
+const byte COLS = 4;  //four columns
+//define the cymbols on the buttons of the keypads
+char hexaKeys[ROWS][COLS] = {
+  { '1', '2', 'x', '3' },
+  { '4', '5', 'F', '6' },
+  { '7', '8', 'x', '9' },
+  { '*', '0', 'R', '#' }
+};
+byte rowPins[ROWS] = { 4, 5, 3, 2 };      //connect to the row pinouts of the keypad
+byte colPins[COLS] = { 17, 16, 15, 14 };  //connect to the column pinouts of the keypad
+
+Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
+
+
 void setup() {
 
   Serial.begin(9600);
@@ -161,7 +176,10 @@ void setup() {
 }
 
 void loop() {
-  // First, read the buttons
+  // Handle the keypad
+  checkKeypad();
+
+  // Read the buttons
   buttonRecord.update();
   buttonPlay.update();
 
@@ -543,4 +561,44 @@ void print_mode(void) { // only for debugging
   else if(mode == Mode::Playing)    Serial.println(" Playing");
   else if(mode == Mode::Initialising)  Serial.println(" Initialising");
   else Serial.println(" Undefined");
+}
+
+
+
+void checkKeypad() {
+  if (customKeypad.getState() == RELEASED || customKeypad.getState() == IDLE) {
+    waveformMF1.amplitude(0);
+    waveformMF2.amplitude(0);
+  }
+
+  if(buttonRecord.read()) {
+    return;
+  }
+
+  char key = customKeypad.getKey();
+  if (key != NO_KEY) {
+    Serial.println(key);
+    float tone1;
+    float tone2;
+    if (key == '1' || key == '2' || key == '3') {
+      tone1 = 697;
+    } else if (key == '4' || key == '5' || key == '6') {
+      tone1 = 770;
+    } else if (key == '7' || key == '8' || key == '9') {
+      tone1 = 852;
+    } else if (key == '*' || key == '0' || key == '#') {
+      tone1 = 941;
+    }
+
+    if (key == '1' || key == '4' || key == '7' || key == '*') {
+      tone2 = 1209;
+    } else if (key == '2' || key == '5' || key == '8' || key == '0') {
+      tone2 = 1336;
+    } else if (key == '3' || key == '6' || key == '9' || key == '#') {
+      tone2 = 1477;
+    }
+
+    waveformMF1.begin(beep_volume, tone1, WAVEFORM_SINE);
+    waveformMF2.begin(beep_volume, tone2, WAVEFORM_SINE);
+  }
 }
